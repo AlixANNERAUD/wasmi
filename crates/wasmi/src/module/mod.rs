@@ -296,12 +296,13 @@ impl Module {
     #[cfg(feature = "validate")]
     pub fn validate(engine: &Engine, wasm: &[u8]) -> Result<(), Error> {
         let mut validator = Validator::new_with_features(engine.config().wasm_features());
+        let mut allocs = FuncValidatorAllocations::default();
         for payload in Parser::new(0).parse_all(wasm) {
             let payload = payload?;
             if let ValidPayload::Func(func_to_validate, func_body) = validator.payload(&payload)? {
-                func_to_validate
-                    .into_validator(FuncValidatorAllocations::default())
-                    .validate(&func_body)?;
+                let mut func_validator = func_to_validate.into_validator(allocs);
+                func_validator.validate(&func_body)?;
+                allocs = func_validator.into_allocations();
             }
         }
         Ok(())
