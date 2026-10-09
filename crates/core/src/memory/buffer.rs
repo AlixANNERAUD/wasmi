@@ -1,6 +1,10 @@
 use crate::memory::MemoryError;
-use alloc::{slice, vec::Vec};
-use core::{iter, mem::ManuallyDrop};
+use alloc::{
+    alloc::{Layout, alloc_zeroed},
+    slice,
+    vec::Vec,
+};
+use core::mem::ManuallyDrop;
 
 /// A byte buffer implementation.
 ///
@@ -74,11 +78,16 @@ impl ByteBuffer {
     ///
     /// If the requested amount of heap bytes could not be allocated.
     pub fn new(size: usize) -> Result<Self, MemoryError> {
-        let mut vec = Vec::new();
-        if vec.try_reserve(size).is_err() {
-            return Err(MemoryError::OutOfSystemMemory);
+        let vec = if size == 0 {
+            Vec::new()
+        } else {
+            let layout = Layout::array::<u8>(size).map_err(|_| MemoryError::OutOfSystemMemory)?;
+            let ptr = unsafe { alloc_zeroed(layout) };
+            if ptr.is_null() {
+                return Err(MemoryError::OutOfSystemMemory);
+            }
+            unsafe { Vec::from_raw_parts(ptr, size, size) }
         };
-        vec.extend(iter::repeat_n(0x00_u8, size));
         let (ptr, len, capacity) = vec_into_raw_parts(vec);
         Ok(Self {
             ptr,
@@ -275,6 +284,26 @@ mod test {
         let buf = unsafe { &mut *core::ptr::addr_of_mut!(BUF) };
         let mut buffer = ByteBuffer::new_static(buf, 5).unwrap();
         assert!(buffer.grow(10).is_err());
+    }
+
+    #[test]
+    fn new_is_zeroed() {
+        let size = 1 << 20;
+        let mut buffer = ByteBuffer::new(size).unwrap();
+        assert_eq!(buffer.len(), size);
+        assert!(buffer.data().iter().all(|&byte| byte == 0x00_u8));
+        buffer.data_mut()[size - 1] = 0xFF_u8;
+        buffer.grow(2 * size).unwrap();
+        assert_eq!(buffer.data()[size - 1], 0xFF_u8);
+        assert!(buffer.data()[size..].iter().all(|&byte| byte == 0x00_u8));
+    }
+
+    #[test]
+    fn new_out_of_memory_works() {
+        assert!(matches!(
+            ByteBuffer::new(usize::MAX).unwrap_err(),
+            MemoryError::OutOfSystemMemory
+        ));
     }
 
     #[test]
