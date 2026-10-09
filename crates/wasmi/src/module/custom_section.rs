@@ -30,7 +30,11 @@ impl CustomSectionsBuilder {
 
     /// Finalize construction of the [`CustomSections`].
     #[inline]
-    pub fn finish(self) -> CustomSections {
+    pub fn finish(mut self) -> CustomSections {
+        let names_and_data = &mut self.inner.names_and_data;
+        if names_and_data.capacity() - names_and_data.len() > names_and_data.len() / 8 {
+            names_and_data.shrink_to_fit();
+        }
         CustomSections { inner: self.inner }
     }
 }

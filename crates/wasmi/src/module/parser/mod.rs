@@ -433,7 +433,7 @@ impl ModuleParser {
             // Also benchmarks show that validation of the data section can be very costly.
             validator.data_section(&section)?;
         }
-        builder.reserve_data_segments(section.count() as usize);
+        builder.reserve_data_segments(section.count() as usize, section.range().len());
         for segment in section {
             builder.push_data_segment(segment?)?;
         }

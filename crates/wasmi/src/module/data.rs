@@ -85,13 +85,6 @@ pub struct DataSegments {
     /// All data segments.
     segments: Box<[DataSegment]>,
     /// All bytes from all active data segments.
-    ///
-    /// # Note
-    ///
-    /// We deliberately do not use `Box<[u8]>` here because it is not possible
-    /// to properly pre-reserve space for the bytes and thus finishing construction
-    /// of the [`DataSegments`] would highly likely reallocate and mass-copy
-    /// which we prevent by simply using a `Vec<u8>` instead.
     bytes: Vec<u8>,
 }
 
@@ -116,12 +109,13 @@ pub struct DataSegmentsBuilder {
 
 impl DataSegmentsBuilder {
     /// Reserves space for at least `additional` new [`DataSegments`].
-    pub fn reserve(&mut self, count: usize) {
+    pub fn reserve(&mut self, count: usize, max_bytes: usize) {
         assert!(
             self.segments.capacity() == 0,
             "must not reserve multiple times"
         );
         self.segments.reserve(count);
+        self.bytes.reserve(max_bytes);
     }
 
     /// Pushes another [`DataSegment`] to the [`DataSegmentsBuilder`].
@@ -162,7 +156,10 @@ impl DataSegmentsBuilder {
         Ok(())
     }
 
-    pub fn finish(self) -> DataSegments {
+    pub fn finish(mut self) -> DataSegments {
+        if self.bytes.capacity() - self.bytes.len() > self.bytes.len() / 8 {
+            self.bytes.shrink_to_fit();
+        }
         DataSegments {
             segments: self.segments.into(),
             bytes: self.bytes,

@@ -459,8 +459,8 @@ impl ModuleBuilder {
     }
 
     /// Reserve space for at least `additional` new data segments.
-    pub fn reserve_data_segments(&mut self, additional: usize) {
-        self.data_segments.reserve(additional);
+    pub fn reserve_data_segments(&mut self, additional: usize, max_bytes: usize) {
+        self.data_segments.reserve(additional, max_bytes);
     }
 
     /// Push another parsed data segment to the [`ModuleBuilder`].
