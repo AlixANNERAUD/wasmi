@@ -182,15 +182,6 @@ macro_rules! impl_try_truncate_into {
         impl TruncateSaturateInto<$into> for $from {
             #[inline]
             fn truncate_saturate_into(self) -> $into {
-                if self.is_nan() {
-                    return <$into as Default>::default();
-                }
-                if self.is_infinite() && self.is_sign_positive() {
-                    return <$into>::MAX;
-                }
-                if self.is_infinite() && self.is_sign_negative() {
-                    return <$into>::MIN;
-                }
                 self as _
             }
         }
