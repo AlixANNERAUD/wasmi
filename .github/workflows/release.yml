@@ -81,8 +81,9 @@ jobs:
     runs-on: ${{ matrix.platform.runner }}
     env:
       # Optimize the release builds without editing the (commented-out) profile in
-      # crates/cli/Cargo.toml. The workspace already sets `codegen-units = 1`.
+      # crates/cli/Cargo.toml.
       CARGO_PROFILE_RELEASE_LTO: fat
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
       CARGO_PROFILE_RELEASE_STRIP: symbols
       # Per feature set: `full` => 3 (max speed, the release default), `minimal` => "s"
       # (optimize for size). Every other build setting is identical for both.
