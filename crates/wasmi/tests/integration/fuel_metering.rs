@@ -108,3 +108,43 @@ fn metered_i32_add_lazy_translation() {
 fn metered_i32_add_lazy() {
     run_test(CompilationMode::Lazy, 33)
 }
+
+fn consumed_fuel_with(cost: Option<wasmi::OperatorCost>) -> u64 {
+    let wasm = r#"
+        (module
+            (func (export "test") (param i32) (result i32)
+                (i32.add
+                    (i32.add (local.get 0) (local.get 0))
+                    (i32.add (local.get 0) (local.get 0))
+                )
+            )
+        )
+    "#;
+    let mut config = Config::default();
+    config.consume_fuel(true);
+    if let Some(cost) = cost {
+        config.operator_cost(cost);
+    }
+    let engine = Engine::new(&config);
+    let mut store = Store::new(&engine, ());
+    let module = Module::new(&engine, wasm).unwrap();
+    let instance = Linker::new(&engine)
+        .instantiate_and_start(&mut store, &module)
+        .unwrap();
+    let func = instance.get_typed_func::<i32, i32>(&store, "test").unwrap();
+    store.set_fuel(1_000).unwrap();
+    assert_eq!(func.call(&mut store, 1).unwrap(), 4);
+    1_000 - store.get_fuel().unwrap()
+}
+
+#[test]
+fn custom_operator_cost() {
+    let default_cost = wasmi::OperatorCost::default();
+    let custom_cost = wasmi::OperatorCost {
+        i32_add: default_cost.i32_add + 10,
+        ..default_cost
+    };
+    let consumed_default = consumed_fuel_with(None);
+    let consumed_custom = consumed_fuel_with(Some(custom_cost));
+    assert_eq!(consumed_custom, consumed_default + 3 * 10);
+}
